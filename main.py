@@ -178,17 +178,13 @@ def generate_m3u(channels):
     print(f"\n🎉 全部完成！共收錄 {len(final_list)} 個有效頻道。", flush=True)
     return final_list
 
-def normalize_news_group(line):
+def normalize_group(line):
     group = re.search(r'group-title="([^"]*)"', line)
     if not group:
         return line
 
     categories = group.group(1).split(";")
-    if "Business" in categories:
-        return f'{line[:group.start()]}group-title="Business"{line[group.end():]}'
-    if "News" in categories:
-        return f'{line[:group.start()]}group-title="News"{line[group.end():]}'
-    return line
+    return f'{line[:group.start()]}group-title="{categories[0]}"{line[group.end():]}'
 
 def generate_all_m3u(hk_channels):
     print("\n🌍 正在更新全球頻道清單...", flush=True)
@@ -200,7 +196,7 @@ def generate_all_m3u(hk_channels):
         return
 
     global_lines = [
-        normalize_news_group(line)
+        normalize_group(line)
         for line in response.text.rstrip().splitlines()
     ]
     global_content = "\n".join(global_lines)

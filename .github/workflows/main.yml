@@ -32,6 +32,6 @@ jobs:
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git add hk_live.m3u
-        git commit -m "Auto-update channel list" || echo "No changes to commit"
+        git add hk_live.m3u all_live.m3u
+        git commit -m "Auto-update IPTV playlists" || echo "No changes to commit"
         git push

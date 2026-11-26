@@ -30,6 +30,8 @@ SOURCE_URLS = [
     "https://raw.githubusercontent.com/MercuryZz/IPTVN/refs/heads/Files/GAT.m3u"
 ]
 
+ALL_LIVE_SOURCE = "https://iptv-org.github.io/iptv/index.m3u"
+
 # 2. 包含關鍵字 (必須包含這些字才抓取)
 KEYWORDS = [
     "ViuTV", "HOY", "RTHK", "Jade", "Pearl", "J2", "J5", "Now", 
@@ -174,7 +176,42 @@ def generate_m3u(channels):
         f.write(content)
 
     print(f"\n🎉 全部完成！共收錄 {len(final_list)} 個有效頻道。", flush=True)
+    return final_list
+
+def generate_all_m3u(hk_channels):
+    print("\n🌍 正在更新全球頻道清單...", flush=True)
+    try:
+        response = requests.get(ALL_LIVE_SOURCE, timeout=60)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        print(f"⚠️ 無法更新全球清單: {e}", flush=True)
+        return
+
+    global_content = response.text.rstrip()
+    existing_urls = {
+        line.strip() for line in global_content.splitlines()
+        if line.strip().startswith("http")
+    }
+    additions = []
+
+    for channel in hk_channels:
+        if channel["url"] not in existing_urls:
+            additions.append(channel)
+            existing_urls.add(channel["url"])
+
+    if additions:
+        global_content += "\n# Added from hk_live.m3u\n"
+        for channel in additions:
+            name = channel["name"].replace('臺', '台')
+            global_content += f'#EXTINF:-1 group-title="Hong Kong",{name}\n'
+            global_content += f'{channel["url"]}\n'
+
+    with open("all_live.m3u", "w", encoding="utf-8") as f:
+        f.write(global_content + "\n")
+
+    print(f"🌍 全球清單已更新，加入 {len(additions)} 個香港頻道。", flush=True)
 
 if __name__ == "__main__":
     candidates = fetch_and_parse()
-    generate_m3u(candidates)
+    channels = generate_m3u(candidates)
+    generate_all_m3u(channels)

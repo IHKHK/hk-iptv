@@ -80,12 +80,29 @@ def check_url(url):
         return False
 
 def get_sort_key(item):
-    """計算頻道的排序權重"""
     name = item["name"]
-    for index, keyword in enumerate(ORDER_KEYWORDS):
-        if keyword in name:
-            return index
-    return 999
+    return (0 if re.search(r'[\u4e00-\u9fff]', name) else 1, name.casefold())
+
+def sort_m3u_entries(content):
+    header = []
+    entries = []
+    current_entry = None
+
+    for line in content.splitlines():
+        if line.startswith("#EXTINF"):
+            if current_entry:
+                entries.append(current_entry)
+            current_entry = [line]
+        elif current_entry:
+            current_entry.append(line)
+        else:
+            header.append(line)
+
+    if current_entry:
+        entries.append(current_entry)
+
+    entries.sort(key=lambda entry: get_sort_key({"name": entry[0].split(",", 1)[-1]}))
+    return "\n".join(header + [line for entry in entries for line in entry])
 
 def fetch_and_parse():
     found_channels = []
@@ -219,6 +236,8 @@ def generate_all_m3u(hk_channels):
             hk_content += f'#EXTINF:-1 group-title="Hong Kong",{name}\n'
             hk_content += f'{channel["url"]}\n'
         global_content = f"{global_lines[0]}\n{hk_content}" + "\n".join(global_lines[1:])
+
+    global_content = sort_m3u_entries(global_content)
 
     with open("all_live.m3u", "w", encoding="utf-8") as f:
         f.write(global_content + "\n")

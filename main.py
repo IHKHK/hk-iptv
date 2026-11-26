@@ -39,6 +39,8 @@ REPLAY_GROUPS = {
     "•香港「Relay」": "Hong Kong",
 }
 JAPAN_SOURCE = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_japan.m3u8"
+KOREA_SOURCE = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_korea.m3u8"
+TAIWAN_SOURCE = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_taiwan.m3u8"
 
 # 2. 包含關鍵字 (必須包含這些字才抓取)
 KEYWORDS = [
@@ -172,12 +174,12 @@ def get_replay_entries(existing_urls):
     print(f"🔁 已加入 {len(entries)} 個 Replay 頻道。", flush=True)
     return entries
 
-def get_japan_entries(existing_urls):
+def get_country_entries(source, country, existing_urls):
     try:
-        response = requests.get(JAPAN_SOURCE, timeout=60)
+        response = requests.get(source, timeout=60)
         response.raise_for_status()
     except requests.RequestException as e:
-        print(f"⚠️ 無法更新日本清單: {e}", flush=True)
+        print(f"⚠️ 無法更新 {country} 清單: {e}", flush=True)
         return [], []
 
     entries = []
@@ -191,12 +193,12 @@ def get_japan_entries(existing_urls):
             existing_japan_urls.extend(urls)
             continue
 
-        entry[0] = set_group_title(entry[0], "Japan")
+        entry[0] = set_group_title(entry[0], country)
         entries.append(entry)
         existing_urls.update(urls)
 
     print(
-        f"🗾 已加入 {len(entries)} 個日本頻道，重新分類 {len(existing_japan_urls)} 個既有頻道。",
+        f"🌐 已加入 {len(entries)} 個 {country} 頻道，重新分類 {len(existing_japan_urls)} 個既有頻道。",
         flush=True,
     )
     return entries, existing_japan_urls
@@ -335,8 +337,12 @@ def generate_all_m3u(hk_channels):
         ])
 
     extra_entries.extend(get_replay_entries(existing_urls))
-    japan_entries, existing_japan_urls = get_japan_entries(existing_urls)
+    japan_entries, existing_japan_urls = get_country_entries(JAPAN_SOURCE, "Japan", existing_urls)
+    korea_entries, existing_korea_urls = get_country_entries(KOREA_SOURCE, "Korea", existing_urls)
+    taiwan_entries, existing_taiwan_urls = get_country_entries(TAIWAN_SOURCE, "Taiwan", existing_urls)
     extra_entries.extend(japan_entries)
+    extra_entries.extend(korea_entries)
+    extra_entries.extend(taiwan_entries)
 
     if extra_entries:
         extra_content = "# Added from hk_live.m3u and Yang replay source\n"
@@ -346,7 +352,12 @@ def generate_all_m3u(hk_channels):
 
     for url in existing_japan_urls:
         global_content = set_group_for_url(global_content, url, "Japan")
+    for url in existing_korea_urls:
+        global_content = set_group_for_url(global_content, url, "Korea")
+    for url in existing_taiwan_urls:
+        global_content = set_group_for_url(global_content, url, "Taiwan")
 
+    global_content = global_content.replace('group-title="Taiwan Replay"', 'group-title="Taiwan"')
     global_content = sort_m3u_entries(global_content)
 
     with open("all_live.m3u", "w", encoding="utf-8") as f:

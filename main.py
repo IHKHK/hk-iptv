@@ -187,7 +187,8 @@ def generate_all_m3u(hk_channels):
         print(f"⚠️ 無法更新全球清單: {e}", flush=True)
         return
 
-    global_content = response.text.rstrip()
+    global_lines = response.text.rstrip().splitlines()
+    global_content = "\n".join(global_lines)
     existing_urls = {
         line.strip() for line in global_content.splitlines()
         if line.strip().startswith("http")
@@ -200,11 +201,12 @@ def generate_all_m3u(hk_channels):
             existing_urls.add(channel["url"])
 
     if additions:
-        global_content += "\n# Added from hk_live.m3u\n"
+        hk_content = "# Added from hk_live.m3u\n"
         for channel in additions:
             name = channel["name"].replace('臺', '台')
-            global_content += f'#EXTINF:-1 group-title="Hong Kong",{name}\n'
-            global_content += f'{channel["url"]}\n'
+            hk_content += f'#EXTINF:-1 group-title="Hong Kong",{name}\n'
+            hk_content += f'{channel["url"]}\n'
+        global_content = f"{global_lines[0]}\n{hk_content}" + "\n".join(global_lines[1:])
 
     with open("all_live.m3u", "w", encoding="utf-8") as f:
         f.write(global_content + "\n")

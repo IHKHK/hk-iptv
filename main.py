@@ -27,8 +27,7 @@ SOURCE_URLS = [
     "https://raw.githubusercontent.com/vbskycn/iptv/refs/heads/master/tv/iptv4.m3u",
     "https://epg.pw/test_channels_hong_kong.m3u",
     "https://raw.githubusercontent.com/hujingguang/ChinaIPTV/main/cnTV_AutoUpdate.m3u8",
-    "https://raw.githubusercontent.com/MercuryZz/IPTVN/refs/heads/Files/GAT.m3u",
-    "https://cdn.qd.je/live.m3u"
+    "https://raw.githubusercontent.com/MercuryZz/IPTVN/refs/heads/Files/GAT.m3u"
 ]
 
 ALL_LIVE_SOURCE = "https://iptv-org.github.io/iptv/index.m3u"

@@ -336,8 +336,6 @@ def generate_all_m3u(hk_channels):
 
     extra_entries.extend(get_replay_entries(existing_urls))
     japan_entries, existing_japan_urls = get_japan_entries(existing_urls)
-    for url in existing_japan_urls:
-        global_content = set_group_for_url(global_content, url, "Japan")
     extra_entries.extend(japan_entries)
 
     if extra_entries:
@@ -345,6 +343,9 @@ def generate_all_m3u(hk_channels):
         for entry in extra_entries:
             extra_content += "\n".join(entry) + "\n"
         global_content = f"{global_lines[0]}\n{extra_content}" + "\n".join(global_lines[1:])
+
+    for url in existing_japan_urls:
+        global_content = set_group_for_url(global_content, url, "Japan")
 
     global_content = sort_m3u_entries(global_content)
 

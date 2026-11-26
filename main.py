@@ -38,6 +38,7 @@ REPLAY_GROUPS = {
     "•台灣「Relay」": "Taiwan Replay",
     "•香港「Relay」": "Hong Kong",
 }
+JAPAN_SOURCE = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_japan.m3u8"
 
 # 2. 包含關鍵字 (必須包含這些字才抓取)
 KEYWORDS = [
@@ -126,6 +127,23 @@ def get_m3u_entries(content):
         entries.append(current_entry)
     return entries
 
+def set_group_title(line, group_name):
+    group = re.search(r'group-title="([^"]*)"', line)
+    if group:
+        return f'{line[:group.start()]}group-title="{group_name}"{line[group.end():]}'
+    return line.replace("#EXTINF:-1", f'#EXTINF:-1 group-title="{group_name}"', 1)
+
+def set_group_for_url(content, url, group_name):
+    lines = content.splitlines()
+    for index, line in enumerate(lines):
+        if line.strip() != url:
+            continue
+        for entry_index in range(index - 1, -1, -1):
+            if lines[entry_index].startswith("#EXTINF"):
+                lines[entry_index] = set_group_title(lines[entry_index], group_name)
+                return "\n".join(lines)
+    return content
+
 def get_replay_entries(existing_urls):
     try:
         response = requests.get(REPLAY_SOURCE, timeout=60)
@@ -153,6 +171,35 @@ def get_replay_entries(existing_urls):
 
     print(f"🔁 已加入 {len(entries)} 個 Replay 頻道。", flush=True)
     return entries
+
+def get_japan_entries(existing_urls):
+    try:
+        response = requests.get(JAPAN_SOURCE, timeout=60)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        print(f"⚠️ 無法更新日本清單: {e}", flush=True)
+        return [], []
+
+    entries = []
+    existing_japan_urls = []
+    for entry in get_m3u_entries(response.text):
+        urls = [line.strip() for line in entry if line.strip().startswith("http")]
+        if not urls:
+            continue
+
+        if any(url in existing_urls for url in urls):
+            existing_japan_urls.extend(urls)
+            continue
+
+        entry[0] = set_group_title(entry[0], "Japan")
+        entries.append(entry)
+        existing_urls.update(urls)
+
+    print(
+        f"🗾 已加入 {len(entries)} 個日本頻道，重新分類 {len(existing_japan_urls)} 個既有頻道。",
+        flush=True,
+    )
+    return entries, existing_japan_urls
 
 def fetch_and_parse():
     found_channels = []
@@ -288,6 +335,10 @@ def generate_all_m3u(hk_channels):
         ])
 
     extra_entries.extend(get_replay_entries(existing_urls))
+    japan_entries, existing_japan_urls = get_japan_entries(existing_urls)
+    for url in existing_japan_urls:
+        global_content = set_group_for_url(global_content, url, "Japan")
+    extra_entries.extend(japan_entries)
 
     if extra_entries:
         extra_content = "# Added from hk_live.m3u and Yang replay source\n"

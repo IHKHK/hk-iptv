@@ -32,6 +32,12 @@ SOURCE_URLS = [
 ]
 
 ALL_LIVE_SOURCE = "https://iptv-org.github.io/iptv/index.m3u"
+REPLAY_SOURCE = "https://iptv.yang-1989.xyz/playlist.m3u"
+REPLAY_GROUPS = {
+    "•中國「Relay」": "China Replay",
+    "•台灣「Relay」": "Taiwan Replay",
+    "•香港「Relay」": "Hong Kong",
+}
 
 # 2. 包含關鍵字 (必須包含這些字才抓取)
 KEYWORDS = [
@@ -103,6 +109,50 @@ def sort_m3u_entries(content):
 
     entries.sort(key=lambda entry: get_sort_key({"name": entry[0].split(",", 1)[-1]}))
     return "\n".join(header + [line for entry in entries for line in entry])
+
+def get_m3u_entries(content):
+    entries = []
+    current_entry = None
+
+    for line in content.splitlines():
+        if line.startswith("#EXTINF"):
+            if current_entry:
+                entries.append(current_entry)
+            current_entry = [line]
+        elif current_entry:
+            current_entry.append(line)
+
+    if current_entry:
+        entries.append(current_entry)
+    return entries
+
+def get_replay_entries(existing_urls):
+    try:
+        response = requests.get(REPLAY_SOURCE, timeout=60)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        print(f"⚠️ 無法更新 Replay 清單: {e}", flush=True)
+        return []
+
+    entries = []
+    for entry in get_m3u_entries(response.text):
+        group = re.search(r'group-title="([^"]*)"', entry[0])
+        if not group or group.group(1) not in REPLAY_GROUPS:
+            continue
+
+        urls = [line.strip() for line in entry if line.strip().startswith("http")]
+        if not urls or any(url in existing_urls for url in urls):
+            continue
+
+        entry[0] = (
+            f'{entry[0][:group.start()]}group-title="{REPLAY_GROUPS[group.group(1)]}"'
+            f'{entry[0][group.end():]}'
+        )
+        entries.append(entry)
+        existing_urls.update(urls)
+
+    print(f"🔁 已加入 {len(entries)} 個 Replay 頻道。", flush=True)
+    return entries
 
 def fetch_and_parse():
     found_channels = []
@@ -229,13 +279,21 @@ def generate_all_m3u(hk_channels):
             additions.append(channel)
             existing_urls.add(channel["url"])
 
-    if additions:
-        hk_content = "# Added from hk_live.m3u\n"
-        for channel in additions:
-            name = channel["name"].replace('臺', '台')
-            hk_content += f'#EXTINF:-1 group-title="Hong Kong",{name}\n'
-            hk_content += f'{channel["url"]}\n'
-        global_content = f"{global_lines[0]}\n{hk_content}" + "\n".join(global_lines[1:])
+    extra_entries = []
+    for channel in additions:
+        name = channel["name"].replace('臺', '台')
+        extra_entries.append([
+            f'#EXTINF:-1 group-title="Hong Kong",{name}',
+            channel["url"],
+        ])
+
+    extra_entries.extend(get_replay_entries(existing_urls))
+
+    if extra_entries:
+        extra_content = "# Added from hk_live.m3u and Yang replay source\n"
+        for entry in extra_entries:
+            extra_content += "\n".join(entry) + "\n"
+        global_content = f"{global_lines[0]}\n{extra_content}" + "\n".join(global_lines[1:])
 
     global_content = sort_m3u_entries(global_content)
 

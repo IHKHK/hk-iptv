@@ -41,6 +41,7 @@ REPLAY_GROUPS = {
 JAPAN_SOURCE = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_japan.m3u8"
 KOREA_SOURCE = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_korea.m3u8"
 TAIWAN_SOURCE = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_taiwan.m3u8"
+ALLOWED_COUNTRIES = {"US", "CA", "UK", "GB", "HK", "CN", "TW", "JP", "KR"}
 
 # 2. 包含關鍵字 (必須包含這些字才抓取)
 KEYWORDS = [
@@ -128,6 +129,28 @@ def get_m3u_entries(content):
     if current_entry:
         entries.append(current_entry)
     return entries
+
+def is_allowed_country_entry(entry):
+    metadata = entry[0]
+    tvg_id = re.search(r'tvg-id="([^"]+)"', metadata)
+    if tvg_id:
+        country = re.search(r'\.([a-z]{2})(?:@|$)', tvg_id.group(1), re.IGNORECASE)
+        if country and country.group(1).upper() in ALLOWED_COUNTRIES:
+            return True
+
+    tvg_country = re.search(r'tvg-country="([^"]+)"', metadata)
+    return bool(tvg_country and tvg_country.group(1).upper() in ALLOWED_COUNTRIES)
+
+def filter_allowed_country_entries(content):
+    lines = content.splitlines()
+    first_entry = next(
+        (index for index, line in enumerate(lines) if line.startswith("#EXTINF")),
+        len(lines),
+    )
+    header = lines[:first_entry]
+    entries = [entry for entry in get_m3u_entries(content) if is_allowed_country_entry(entry)]
+    print(f"🌎 保留 {len(entries)} 個指定國家頻道。", flush=True)
+    return "\n".join(header + [line for entry in entries for line in entry])
 
 def set_group_title(line, group_name):
     group = re.search(r'group-title="([^"]*)"', line)
@@ -316,7 +339,8 @@ def generate_all_m3u(hk_channels):
         normalize_group(line)
         for line in response.text.rstrip().splitlines()
     ]
-    global_content = "\n".join(global_lines)
+    global_content = filter_allowed_country_entries("\n".join(global_lines))
+    global_lines = global_content.splitlines()
     existing_urls = {
         line.strip() for line in global_content.splitlines()
         if line.strip().startswith("http")

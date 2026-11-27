@@ -42,6 +42,7 @@ JAPAN_SOURCE = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/
 KOREA_SOURCE = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_korea.m3u8"
 TAIWAN_SOURCE = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_taiwan.m3u8"
 ALLOWED_COUNTRIES = {"US", "CA", "UK", "GB", "HK", "CN", "TW", "JP", "KR"}
+COUNTRIES_SOURCE = "https://iptv-org.github.io/api/countries.json"
 
 # 2. 包含關鍵字 (必須包含這些字才抓取)
 KEYWORDS = [
@@ -130,11 +131,30 @@ def get_m3u_entries(content):
         entries.append(current_entry)
     return entries
 
-def is_allowed_country_entry(entry):
+def get_excluded_feed_countries():
+    try:
+        response = requests.get(COUNTRIES_SOURCE, timeout=60)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        print(f"⚠️ 無法讀取國家資料: {e}", flush=True)
+        return set()
+
+    return {
+        country["name"].casefold()
+        for country in response.json()
+        if country["code"] not in ALLOWED_COUNTRIES
+    }
+
+def is_allowed_country_entry(entry, excluded_feed_countries):
     metadata = entry[0]
     tvg_id = re.search(r'tvg-id="([^"]+)"', metadata)
     if tvg_id:
-        country = re.search(r'\.([a-z]{2})(?:@|$)', tvg_id.group(1), re.IGNORECASE)
+        tvg_id_value = tvg_id.group(1)
+        feed_country = tvg_id_value.partition("@")[2].casefold()
+        if feed_country in excluded_feed_countries:
+            return False
+
+        country = re.search(r'\.([a-z]{2})(?:@|$)', tvg_id_value, re.IGNORECASE)
         if country and country.group(1).upper() in ALLOWED_COUNTRIES:
             return True
 
@@ -148,7 +168,12 @@ def filter_allowed_country_entries(content):
         len(lines),
     )
     header = lines[:first_entry]
-    entries = [entry for entry in get_m3u_entries(content) if is_allowed_country_entry(entry)]
+    excluded_feed_countries = get_excluded_feed_countries()
+    entries = [
+        entry
+        for entry in get_m3u_entries(content)
+        if is_allowed_country_entry(entry, excluded_feed_countries)
+    ]
     print(f"🌎 保留 {len(entries)} 個指定國家頻道。", flush=True)
     return "\n".join(header + [line for entry in entries for line in entry])
 

@@ -1,7 +1,5 @@
 #EXTM3U x-tvg-url="https://epg.112114.xyz/pp.xml"
-# Update: 2026-11-28 04:55:59
-#EXTINF:-1 group-title="Hong Kong" logo="https://epg.112114.xyz/logo/HOY國際財經台.png",HOY國際財經台
-https://cdn.qd.je/163189/hoy76
+# Update: 2026-11-28 05:00:05
 #EXTINF:-1 group-title="Hong Kong" logo="https://epg.112114.xyz/logo/HOY資訊台.png",HOY資訊台
 https://cdn.qd.je/163189/hoy78
 #EXTINF:-1 group-title="Hong Kong" logo="https://epg.112114.xyz/logo/NOW新聞台.png",NOW新聞台

@@ -34,7 +34,7 @@ SOURCE_URLS = [
 ALL_LIVE_SOURCE = "https://iptv-org.github.io/iptv/index.m3u"
 REPLAY_SOURCE = "https://iptv.yang-1989.xyz/playlist.m3u"
 REPLAY_GROUPS = {
-    "•中國「Relay」": "China Replay",
+    "•中國「Relay」": "China",
     "•台灣「Relay」": "Taiwan Replay",
     "•香港「Relay」": "Hong Kong",
 }
@@ -55,6 +55,7 @@ EXCLUDED_ENTRY_TERMS = (
     "czech",
 )
 EXCLUDED_GROUPS = {"Shop", "Auto"}
+PRIORITY_GROUPS = ["Hong Kong", "China", "Taiwan", "Japan", "Korea"]
 
 # 2. 包含關鍵字 (必須包含這些字才抓取)
 KEYWORDS = [
@@ -124,7 +125,16 @@ def sort_m3u_entries(content):
     if current_entry:
         entries.append(current_entry)
 
-    entries.sort(key=lambda entry: get_sort_key({"name": entry[0].split(",", 1)[-1]}))
+    def entry_sort_key(entry):
+        group = re.search(r'group-title="([^"]*)"', entry[0])
+        group_name = group.group(1) if group else ""
+        try:
+            group_order = (0, PRIORITY_GROUPS.index(group_name))
+        except ValueError:
+            group_order = (1, group_name.casefold())
+        return (*group_order, get_sort_key({"name": entry[0].split(",", 1)[-1]}))
+
+    entries.sort(key=entry_sort_key)
     return "\n".join(header + [line for entry in entries for line in entry])
 
 def get_m3u_entries(content):

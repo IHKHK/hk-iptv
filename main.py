@@ -44,6 +44,17 @@ TAIWAN_SOURCE = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists
 IYOUHUN_SOURCE = "https://www.iyouhun.com/tv/zb"
 ALLOWED_COUNTRIES = {"US", "CA", "UK", "GB", "HK", "CN", "TW", "JP", "KR"}
 COUNTRIES_SOURCE = "https://iptv-org.github.io/api/countries.json"
+EXCLUDED_ENTRY_TERMS = (
+    "latin america",
+    "french",
+    "german",
+    "hispanic",
+    "latin",
+    "espanol",
+    "español",
+    "czech",
+)
+EXCLUDED_GROUPS = {"Shop", "Auto"}
 
 # 2. 包含關鍵字 (必須包含這些字才抓取)
 KEYWORDS = [
@@ -176,6 +187,26 @@ def filter_allowed_country_entries(content):
         if is_allowed_country_entry(entry, excluded_feed_countries)
     ]
     print(f"🌎 保留 {len(entries)} 個指定國家頻道。", flush=True)
+    return "\n".join(header + [line for entry in entries for line in entry])
+
+def filter_unwanted_entries(content):
+    lines = content.splitlines()
+    first_entry = next(
+        (index for index, line in enumerate(lines) if line.startswith("#EXTINF")),
+        len(lines),
+    )
+    header = lines[:first_entry]
+    entries = []
+    for entry in get_m3u_entries(content):
+        group = re.search(r'group-title="([^"]*)"', entry[0])
+        metadata = entry[0].casefold()
+        if group and group.group(1) in EXCLUDED_GROUPS:
+            continue
+        if any(term in metadata for term in EXCLUDED_ENTRY_TERMS):
+            continue
+        entries.append(entry)
+
+    print(f"🧹 篩選後保留 {len(entries)} 個頻道。", flush=True)
     return "\n".join(header + [line for entry in entries for line in entry])
 
 def set_group_title(line, group_name):
@@ -438,6 +469,7 @@ def generate_all_m3u(hk_channels):
         global_content = set_group_for_url(global_content, url, "Taiwan")
 
     global_content = global_content.replace('group-title="Taiwan Replay"', 'group-title="Taiwan"')
+    global_content = filter_unwanted_entries(global_content)
     global_content = sort_m3u_entries(global_content)
 
     with open("all_live.m3u", "w", encoding="utf-8") as f:

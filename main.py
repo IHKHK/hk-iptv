@@ -41,6 +41,7 @@ REPLAY_GROUPS = {
 JAPAN_SOURCE = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_japan.m3u8"
 KOREA_SOURCE = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_korea.m3u8"
 TAIWAN_SOURCE = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_taiwan.m3u8"
+IYOUHUN_SOURCE = "https://www.iyouhun.com/tv/zb"
 ALLOWED_COUNTRIES = {"US", "CA", "UK", "GB", "HK", "CN", "TW", "JP", "KR"}
 COUNTRIES_SOURCE = "https://iptv-org.github.io/api/countries.json"
 
@@ -251,6 +252,35 @@ def get_country_entries(source, country, existing_urls):
     )
     return entries, existing_japan_urls
 
+def get_iyouhun_hong_kong_entries(existing_urls):
+    try:
+        response = requests.get(IYOUHUN_SOURCE, timeout=60)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        print(f"⚠️ 無法更新游魂港澳台清單: {e}", flush=True)
+        return []
+
+    entries = []
+    group = None
+    for line in response.text.splitlines():
+        name, separator, url = line.strip().partition(",")
+        if not separator:
+            continue
+        if url == "#genre#":
+            group = name
+            continue
+        if group != "💓港澳台📶" or not url.startswith("http") or url in existing_urls:
+            continue
+
+        entries.append([
+            f'#EXTINF:-1 group-title="Hong Kong",{name}',
+            url,
+        ])
+        existing_urls.add(url)
+
+    print(f"🇭🇰 已加入 {len(entries)} 個游魂港澳台頻道。", flush=True)
+    return entries
+
 def fetch_and_parse():
     found_channels = []
     
@@ -392,6 +422,7 @@ def generate_all_m3u(hk_channels):
     extra_entries.extend(japan_entries)
     extra_entries.extend(korea_entries)
     extra_entries.extend(taiwan_entries)
+    extra_entries.extend(get_iyouhun_hong_kong_entries(existing_urls))
 
     if extra_entries:
         extra_content = "# Added from hk_live.m3u and Yang replay source\n"
